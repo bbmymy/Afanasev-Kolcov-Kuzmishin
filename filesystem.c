@@ -6,36 +6,40 @@
 
 #define MAX_SIZE 1024
 
+/* Инициализация файловой системы */
 FILE* fs_open(const char* filename) {
     FILE* fs = fopen(filename, "a+");
     if (!fs) {
-        perror("Failed to open or create filesystem");
+        perror("Ошибка при открытии/создании файловой системы");
         exit(EXIT_FAILURE);
     }
     return fs;
 }
 
+/* Создание нового файла */
 int fs_create_file(FILE* fs, const char* filename, const char* content) {
-    // Проверка существования файла
     fseek(fs, 0, SEEK_SET);
     char buffer[MAX_SIZE];
+    
+    // Проверка на существование файла
     while (fgets(buffer, MAX_SIZE, fs)) {
         buffer[strcspn(buffer, "\n")] = 0;
         if (strcmp(buffer, filename) == 0) {
-            fprintf(stderr, "Error: File '%s' already exists\n", filename);
+            fprintf(stderr, "Ошибка: Файл '%s' уже существует\n", filename);
             return 0;
         }
     }
     
-    // Создание нового файла
+    // Запись нового файла
     fseek(fs, 0, SEEK_END);
     if (fprintf(fs, "%s\n%s\n/\n", filename, content) < 0) {
-        perror("Failed to write to filesystem");
+        perror("Ошибка записи в файловую систему");
         return 0;
     }
     return 1;
 }
 
+/* Просмотр содержимого файла */
 char* fs_view_file(FILE* fs, const char* filename) {
     fseek(fs, 0, SEEK_SET);
     char buffer[MAX_SIZE];
@@ -48,9 +52,11 @@ char* fs_view_file(FILE* fs, const char* filename) {
         
         if (!found) {
             if (strcmp(buffer, filename) == 0) found = 1;
-        } else {
+        } 
+        else {
             if (buffer[0] == '/') break;
             
+            // Добавление строки к содержимому
             size_t line_len = strlen(buffer);
             char* temp = realloc(content, content_size + line_len + 2);
             if (!temp) {
@@ -59,37 +65,34 @@ char* fs_view_file(FILE* fs, const char* filename) {
             }
             content = temp;
             
-            if (content_size > 0) {
-                strcat(content, "\n");
-                content_size++;
-            }
+            if (content_size > 0) strcat(content, "\n");
             strcat(content, buffer);
-            content_size += line_len;
+            content_size += line_len + (content_size ? 1 : 0);
         }
     }
-    
     return content;
 }
 
+/* Удаление файла */
 int fs_delete_file(FILE** fs, const char* filename, const char* fs_filename) {
     fseek(*fs, 0, SEEK_SET);
     
-    // Создаем временный файл
+    // Создание временного файла
     char temp_filename[] = "temp_fs.XXXXXX";
     int fd = mkstemp(temp_filename);
     if (fd == -1) {
-        perror("Failed to create temporary file");
+        perror("Ошибка создания временного файла");
         return 0;
     }
     
     FILE* temp_fs = fdopen(fd, "w+");
     if (!temp_fs) {
-        perror("Failed to open temporary filesystem");
+        perror("Ошибка открытия временной файловой системы");
         close(fd);
         return 0;
     }
     
-    // Копируем все кроме удаляемого файла
+    // Фильтрация удаляемого файла
     int skip_mode = 0;
     int deleted = 0;
     char buffer[MAX_SIZE];
@@ -104,25 +107,19 @@ int fs_delete_file(FILE** fs, const char* filename, const char* fs_filename) {
                 continue;
             }
             fprintf(temp_fs, "%s\n", buffer);
-        } else {
-            if (buffer[0] == '/') {
-                skip_mode = 0;
-                fprintf(temp_fs, "%s\n", buffer);
-            }
+        } 
+        else if (buffer[0] == '/') {
+            skip_mode = 0;
+            fprintf(temp_fs, "%s\n", buffer);
         }
     }
     
-    // Заменяем оригинальный файл
+    // Замена оригинального файла
     fclose(*fs);
     fclose(temp_fs);
     
-    if (remove(fs_filename) != 0) {
-        perror("Failed to remove original filesystem");
-        return 0;
-    }
-    
-    if (rename(temp_filename, fs_filename) != 0) {
-        perror("Failed to rename temporary filesystem");
+    if (remove(fs_filename) != 0 || rename(temp_filename, fs_filename) != 0) {
+        perror("Ошибка обновления файловой системы");
         return 0;
     }
     
@@ -130,25 +127,27 @@ int fs_delete_file(FILE** fs, const char* filename, const char* fs_filename) {
     return deleted;
 }
 
-int fs_modify_file(FILE** fs, const char* filename, const char* new_content, const char* fs_filename) {
+/* Изменение содержимого файла */
+int fs_modify_file(FILE** fs, const char* filename, 
+                 const char* new_content, const char* fs_filename) {
     fseek(*fs, 0, SEEK_SET);
     
-    // Создаем временный файл
+    // Создание временного файла
     char temp_filename[] = "temp_fs.XXXXXX";
     int fd = mkstemp(temp_filename);
     if (fd == -1) {
-        perror("Failed to create temporary file");
+        perror("Ошибка создания временного файла");
         return 0;
     }
     
     FILE* temp_fs = fdopen(fd, "w+");
     if (!temp_fs) {
-        perror("Failed to open temporary filesystem");
+        perror("Ошибка открытия временной файловой системы");
         close(fd);
         return 0;
     }
     
-    // Копируем с заменой содержимого
+    // Копирование с заменой содержимого
     int modify_mode = 0;
     int modified = 0;
     char buffer[MAX_SIZE];
@@ -160,29 +159,24 @@ int fs_modify_file(FILE** fs, const char* filename, const char* new_content, con
             if (strcmp(buffer, filename) == 0) {
                 modify_mode = 1;
                 modified = 1;
+                // Сохраняем имя файла и новое содержимое
                 fprintf(temp_fs, "%s\n%s\n", buffer, new_content);
                 continue;
             }
             fprintf(temp_fs, "%s\n", buffer);
-        } else {
-            if (buffer[0] == '/') {
-                modify_mode = 0;
-                fprintf(temp_fs, "/\n");
-            }
+        } 
+        else if (buffer[0] == '/') {
+            modify_mode = 0;
+            fprintf(temp_fs, "/\n");
         }
     }
     
-    // Заменяем оригинальный файл
+    // Замена оригинального файла
     fclose(*fs);
     fclose(temp_fs);
     
-    if (remove(fs_filename) != 0) {
-        perror("Failed to remove original filesystem");
-        return 0;
-    }
-    
-    if (rename(temp_filename, fs_filename) != 0) {
-        perror("Failed to rename temporary filesystem");
+    if (remove(fs_filename) != 0 || rename(temp_filename, fs_filename) != 0) {
+        perror("Ошибка обновления файловой системы");
         return 0;
     }
     
