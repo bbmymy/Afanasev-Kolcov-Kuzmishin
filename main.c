@@ -37,9 +37,26 @@ int main() {
                 free(file_content);
             } else printf("Файл не найден\n");
         }
+        else if (strcmp(command, "изменить") == 0) {
+            scanf("%s %[^\n]", filename, content);
+            if (fs_modify_file(fs, filename, content))
+                printf("Файл '%s' изменен\n", filename);
+            else
+                printf("Не удалось изменить файл '%s'. Возможно, он не найден.\n", filename);
+        }
+        else if (strcmp(command, "удалить") == 0) {
+            scanf("%s", filename);
+            if (fs_delete_file(fs, filename))
+                printf("Файл '%s' удален\n", filename);
+            else
+                printf("Не удалось удалить файл '%s'. Возможно, он не найден.\n", filename);
+        }
         /* ... другие команды ... */
+        
     }
     
     fclose(fs);
     return 0;
 }
+
+Найти еще
