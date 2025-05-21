@@ -98,3 +98,37 @@ git add filesystem.c README.md
 git commit -m "Implement and document basic filesystem functions"
 git push origin dev
 ```
+
+### Основные функции:
+
+#### `create_new_file`
+**Описание:** Создает новый файл в файловой системе  
+**Параметры:**
+- `FILE* fs` - указатель на файловую систему
+- `const char* filename` - имя создаваемого файла
+- `const char* content` - содержимое файла  
+**Возвращаемое значение:**
+- `int` - 1 при успешном создании, 0 при ошибке
+
+**Пример использования:**
+```c
+if (create_new_file(fs, "newfile.txt", "This is new content")) {
+    printf("File created successfully\n");
+}
+```
+
+#### `modify_file_in_fs`
+**Описание:** Изменяет содержимое существующего файла  
+**Параметры:**
+- `FILE** fs` - двойной указатель на файловую систему
+- `const char* filename` - имя изменяемого файла
+- `const char* new_content` - новое содержимое файла
+- `const char* fs_filename` - имя файла файловой системы  
+**Возвращаемое значение:**
+- `int` - 1 если файл изменен, 0 если файл не найден
+
+**Пример использования:**
+```c
+if (modify_file_in_fs(&fs, "config.txt", "new config value", "disk.fs")) {
+    printf("File modified successfully\n");
+}
